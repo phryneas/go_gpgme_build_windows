@@ -1,0 +1,39 @@
+---
+version: 0.{build}
+platform: x86
+branches:
+  only:
+    - master
+
+clone_folder: c:\gopath\src\github.com\phryneas\go_gpgme_build_windows
+
+environment:   
+  GOPATH: c:\gopath
+  GOROOT: C:\go-x86
+  CGO_LDFLAGS: -LC:\gpg\lib
+  CGO_CFLAGS: -IC:\gpg\include
+  GPG_DIR: C:\gpg
+
+install:
+  - nuget install 7ZipCLI -ExcludeVersion
+  - set PATH=%appveyor_build_folder%\7ZipCLI\tools;%PATH%
+  - appveyor DownloadFile https://www.gnupg.org/ftp/gcrypt/binary/gnupg-w32-2.1.20_20170403.exe -FileName gnupg-w32-2.1.20_20170403.exe
+  - 7z x -o%GPG_DIR% gnupg-w32-2.1.20_20170403.exe
+  - copy "%GPG_DIR%\lib\libgpg-error.imp" "%GPG_DIR%\lib\libgpg-error.a"
+  - copy "%GPG_DIR%\lib\libassuan.imp" "%GPG_DIR%\lib\libassuan.a"
+  - copy "%GPG_DIR%\lib\libgpgme.imp" "%GPG_DIR%\lib\libgpgme.a"
+  - set PATH=%GOPATH%\bin;%GOROOT%\bin;%GPG_DIR%\bin;C:\MinGW\bin;%PATH%
+  - 'go get github.com/proglottis/gpgme || exit 0'
+  - C:\cygwin\bin\sed -i 's/"GPG_AGENT_INFO"/"GPG_AGENT_INFO="/;s/C.unsetenv(v)/C.putenv(v)/' %GOPATH%\src\github.com\proglottis\gpgme\gpgme.go
+
+test_script:
+  - 'go test -v github.com/proglottis/gpgme || exit 0'
+  - 'go test -v github.com/phryneas/go_gpgme_build_windows || exit 0'
+
+
+build_script:
+  - go build -o example.exe -i .
+
+artifacts:
+  - path: example.exe
+    name: binary
